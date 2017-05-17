@@ -26,11 +26,25 @@ def fill_locations_table(conn):
                    where distrito = 'PORTO';''')
     conn.commit()
 
+def create_taxis_table(conn):
+    cur = conn.cursor()
+    cur.execute("create table Taxis (ID serial primary key, LICENSE integer);")
+    conn.commit()
+
+def create_stands_table(conn):
+    cur = conn.cursor()
+    cur.execute("create table Stands (ID serial primary key, NAME varchar(255));")
+
+def create_tables(conn):
+    create_time_table(conn)
+    create_locations_table(conn)
+    create_stands_table(conn)
+    create_taxis_table(conn)
+
 if __name__ == "__main__":
     conn = psy.connect("dbname=guest user=guest")
 
-    create_time_table(conn)
+    create_tables(conn)
     fill_time_table(conn)
 
-    create_locations_table(conn)
     fill_locations_table(conn)

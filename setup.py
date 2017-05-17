@@ -24,6 +24,9 @@ def fill_locations_table(conn):
     cur.execute('''insert into locations (freguesia, concelho)
                    select freguesia, concelho from map
                    where distrito = 'PORTO';''')
+    cur.execute('''insert into locations (freguesia, concelho, stand_id)
+                   select freguesia, concelho, taxi_stands.id from taxi_stands, map
+                   where st_contains(map.geom, taxi_stands.location);''')
     conn.commit()
 
 def create_taxis_table(conn):
@@ -33,7 +36,9 @@ def create_taxis_table(conn):
 
 def create_stands_table(conn):
     cur = conn.cursor()
-    cur.execute("create table Stands (ID serial primary key, NAME varchar(255));")
+    cur.execute("select id, name into Stands from taxi_stands;")
+    conn.commit()
+
 
 def create_tables(conn):
     create_time_table(conn)

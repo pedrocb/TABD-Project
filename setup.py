@@ -34,6 +34,11 @@ def create_taxis_table(conn):
     cur.execute("create table Taxis (ID serial primary key, LICENSE integer);")
     conn.commit()
 
+def fill_taxis_table(conn):
+    cur = conn.cursor()
+    cur.execute("insert into taxis (license) select distinct taxi_id from taxi_services;")
+    conn.commit()
+
 def create_stands_table(conn):
     cur = conn.cursor()
     cur.execute("select id, name into Stands from taxi_stands;")
@@ -51,5 +56,5 @@ if __name__ == "__main__":
 
     create_tables(conn)
     fill_time_table(conn)
-
     fill_locations_table(conn)
+    fill_taxis_table(conn)

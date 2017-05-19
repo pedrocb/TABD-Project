@@ -1,4 +1,5 @@
 import psycopg2 as psy
+import sys
 
 def create_time_table(conn):
     cur = conn.cursor()
@@ -52,7 +53,15 @@ def create_tables(conn):
     create_taxis_table(conn)
 
 if __name__ == "__main__":
-    conn = psy.connect("dbname=guest user=guest")
+    print(sys.argv)
+    if(len(sys.argv) != 3):
+        print("Wrong number of arguments")
+        exit(0)
+
+    user = sys.argv[1]
+    dbname = sys.argv[2]
+    conn = psy.connect("dbname=%s user=%s" % (dbname, user))
+
 
     create_tables(conn)
     fill_time_table(conn)

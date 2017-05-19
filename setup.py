@@ -30,6 +30,10 @@ def fill_locations_table(conn):
                    where st_contains(map.geom, taxi_stands.location);''')
     conn.commit()
 
+def create_facts_table(conn):
+    cur = conn.cursor()
+    cur.execute("create table Facts (TIME int references timestamps(id), LOCATION int references locations(id), TAXI_ID int references taxis(id), N_SERVICES_INITIAL int, SUM_DURATION_INITIAL int, SUM_DISTANCE_INITAL int, N_SERVICES_FINAL int, SUM_DURATION_FINAL int, SUM_DISTANCE_FINAL int);")
+
 def create_taxis_table(conn):
     cur = conn.cursor()
     cur.execute("create table Taxis (ID serial primary key, LICENSE integer);")
@@ -48,12 +52,12 @@ def create_stands_table(conn):
 
 def create_tables(conn):
     create_time_table(conn)
-    create_locations_table(conn)
     create_stands_table(conn)
+    create_locations_table(conn)
     create_taxis_table(conn)
+    create_facts_table(conn)
 
 if __name__ == "__main__":
-    print(sys.argv)
     if(len(sys.argv) != 3):
         print("Wrong number of arguments")
         exit(0)

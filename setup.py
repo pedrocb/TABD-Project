@@ -25,10 +25,10 @@ def fill_locations_table(conn):
     cur.execute('''insert into locations (freguesia, concelho)
                    values ('OUTSIDE', 'OUTSIDE')''')
     cur.execute('''insert into locations (freguesia, concelho)
-                   select freguesia, concelho from map;''')
+                   select freguesia, concelho from porto;''')
     cur.execute('''insert into locations (freguesia, concelho, stand_id)
-                   select freguesia, concelho, taxi_stands.id from taxi_stands, map
-                   where st_contains(map.geom, taxi_stands.location);''')
+                   select freguesia, concelho, taxi_stands.id from taxi_stands, porto
+                   where st_contains(porto.geom, taxi_stands.location);''')
     conn.commit()
 
 def create_facts_table(conn):
@@ -70,7 +70,7 @@ def fill_facts_table(conn):
             cur.execute("select id from locations where stand_id = %s;" % (stand[0]))
             location_id = cur.fetchone()[0]
         else:
-            cur.execute("select locations.id from locations, taxi_services, map where taxi_services.id = %s and st_contains(geom, initial_point) and locations.freguesia = map.freguesia and locations.concelho = map.concelho and locations.stand_id is null;" % service_id)
+            cur.execute("select locations.id from locations, taxi_services, porto where taxi_services.id = %s and st_contains(geom, initial_point) and locations.freguesia = porto.freguesia and locations.concelho = porto.concelho and locations.stand_id is null;" % service_id)
             location = cur.fetchone()
             if location:
                 location_id = location[0]
@@ -85,7 +85,7 @@ def fill_facts_table(conn):
             cur.execute("select id from locations where stand_id = %s;" % (stand[0]))
             location_id = cur.fetchone()[0]
         else:
-            cur.execute("select locations.id from locations, taxi_services, map where taxi_services.id = %s and st_contains(geom, final_point) and locations.freguesia = map.freguesia and locations.concelho = map.concelho and locations.stand_id is null;" % service_id)
+            cur.execute("select locations.id from locations, taxi_services, porto where taxi_services.id = %s and st_contains(geom, final_point) and locations.freguesia = porto.freguesia and locations.concelho = porto.concelho and locations.stand_id is null;" % service_id)
             location = cur.fetchone()
             if location:
                 location_id = location[0]
@@ -113,8 +113,14 @@ def create_stands_table(conn):
     cur.execute("select id, name into Stands from taxi_stands;")
     conn.commit()
 
+def create_porto_map(conn):
+    cur = conn.cursor()
+    cur.execute("create table Porto as select * from map where distrito = 'PORTO';")
+    conn.commit()
+
 
 def create_tables(conn):
+    create_porto_map(conn)
     create_time_table(conn)
     create_stands_table(conn)
     create_locations_table(conn)

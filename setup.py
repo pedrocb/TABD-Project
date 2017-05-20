@@ -57,6 +57,26 @@ def create_tables(conn):
     create_taxis_table(conn)
     create_facts_table(conn)
 
+def drop_tables(conn):
+    cur = conn.cursor()
+    try:
+        cur.execute("DROP TABLE IF EXISTS facts;")
+        cur.execute("DROP TABLE IF EXISTS stands;")
+        cur.execute("DROP TABLE IF EXISTS timestamps;")
+        cur.execute("DROP TABLE IF EXISTS locations;")
+        cur.execute("DROP TABLE IF EXISTS taxis;")
+        conn.commit()
+        print("Deleted tables")
+    except:
+        print("Can't drop\n")
+
+def clean_tables(conn):
+    cur = conn.cursor()
+    cur.execute('''
+        DELETE FROM map
+        WHERE NOT map.distrito = 'PORTO'
+    ''')
+
 if __name__ == "__main__":
     if(len(sys.argv) != 3):
         print("Wrong number of arguments")
@@ -67,6 +87,8 @@ if __name__ == "__main__":
     conn = psy.connect("dbname=%s user=%s" % (dbname, user))
 
 
+    drop_tables(conn)
+    #clean_tables(conn)
     create_tables(conn)
     fill_time_table(conn)
     fill_locations_table(conn)

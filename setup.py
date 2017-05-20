@@ -120,7 +120,6 @@ def create_porto_map(conn):
 
 
 def create_tables(conn):
-    create_porto_map(conn)
     create_time_table(conn)
     create_stands_table(conn)
     create_locations_table(conn)
@@ -135,6 +134,7 @@ def drop_tables(conn):
         cur.execute("DROP TABLE IF EXISTS timestamps;")
         cur.execute("DROP TABLE IF EXISTS locations;")
         cur.execute("DROP TABLE IF EXISTS taxis;")
+        cur.execute("DROP TABLE IF EXISTS porto;")
         conn.commit()
         print("Deleted tables")
     except:
@@ -142,10 +142,21 @@ def drop_tables(conn):
 
 def clean_tables(conn):
     cur = conn.cursor()
+    print("Cleaning tables\n")
+    # Delete services that start and finish outside Porto district
     cur.execute('''
-        DELETE FROM map
-        WHERE NOT map.distrito = 'PORTO'
+    DELETE from taxi_services
+    where (select count(*) from porto where st_contains(geom,initial_point)) = 0
+    and (select count(*) from porto where st_contains(geom, final_point)) = 0;
     ''')
+    print("Deleted {} rows".format(cur.fetchall()))
+    cur.execute('''
+    DELETE from taxi_services
+    where
+        (final_ts - initial_ts) = 0
+        OR (st_distancesphere(initial_point, final_point)/1000)
+        / ((final_ts - initial_ts)::float/3600) < 3;''')
+    conn.commit()
 
 if __name__ == "__main__":
     if(len(sys.argv) != 3):
@@ -158,7 +169,8 @@ if __name__ == "__main__":
 
 
     drop_tables(conn)
-    #clean_tables(conn)
+    create_porto_map(conn)
+    clean_tables(conn)
     create_tables(conn)
     fill_time_table(conn)
     fill_locations_table(conn)

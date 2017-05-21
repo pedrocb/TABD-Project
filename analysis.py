@@ -19,6 +19,24 @@ def plot_by_weekdays(conn):
 
     plt.show()
 
+def plot_feriados(conn):
+    feriados = [[1,1], [3,4], [5,4], [25,4], [1,5], [4,6], [10,6], [15, 8]]
+    feriadosString = ("1 de Janeiro", "3 de Abril", "5 de Abril", "25 de Abril", "1 de Maio", "4 de Junho", "10 de Junho", "15 de Agosto")
+    count = []
+    cur = conn.cursor()
+    for feriado in feriados:
+        cur.execute("select sum(n_services_initial) from facts, timestamps where time = timestamps.id and extract('day' from timestamp) = %d and extract('month' from timestamp) = %d" % (feriado[0], feriado[1]))
+        count.append(convert_results_to_lists(cur.fetchall())[0][0])
+        print(count)
+    fig = plt.figure()
+    xs = (1,2,3,4,5,6,7,8)
+    plt.bar(xs, count)
+    plt.xticks(xs, feriadosString)
+    plt.show()
+    print("Media: ", sum(count)/float(len(count)))
+
+
+
 
 if __name__ == "__main__":
     if(len(sys.argv) != 3):
@@ -30,3 +48,4 @@ if __name__ == "__main__":
     conn = psy.connect("dbname=%s user=%s" % (dbname, user))
 
     plot_by_weekdays(conn)
+    plot_feriados(conn)

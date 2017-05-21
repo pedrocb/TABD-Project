@@ -118,13 +118,49 @@ def create_porto_map(conn):
     conn.commit()
 
 
+def create_porto_polygon(conn):
+    cur = conn.cursor()
+    cur.execute("create table polygon_porto (ID serial primary key);")
+    cur.execute("SELECT AddGeometryColumn('','polygon_porto','geom','4326','MULTIPOLYGON',2);")
+    cur.execute('''insert into polygon_porto (geom)
+                (select st_multi(st_union(f.geom)) FROM porto as f)''')
+
+
 def create_tables(conn):
-    create_porto_map(conn)
     create_time_table(conn)
     create_stands_table(conn)
     create_locations_table(conn)
     create_taxis_table(conn)
     create_facts_table(conn)
+
+def drop_tables(conn):
+    cur = conn.cursor()
+    try:
+        cur.execute("DROP TABLE IF EXISTS facts;")
+        cur.execute("DROP TABLE IF EXISTS stands;")
+        cur.execute("DROP TABLE IF EXISTS timestamps;")
+        cur.execute("DROP TABLE IF EXISTS locations;")
+        cur.execute("DROP TABLE IF EXISTS taxis;")
+        cur.execute("DROP TABLE IF EXISTS porto;")
+        conn.commit()
+        print("Deleted tables")
+    except:
+        print("Can't drop\n")
+
+def clean_tables(conn):
+    cur = conn.cursor()
+    print("Cleaning tables\n")
+    # Delete services that start and finish outside Porto district
+    cur.execute('''DELETE from taxi_services
+                using polygon_porto
+                where not st_contains(geom, initial_point)
+                and not st_contains(geom, final_point)''')
+    # Delete services that have a speed lower than 3 Km/h or less than one minute
+    cur.execute('''DELETE from taxi_services
+                where (final_ts - initial_ts) < 60
+                OR (st_distancesphere(initial_point, final_point)/1000)
+                / ((final_ts - initial_ts)::float/3600) < 3;''')
+    conn.commit()
 
 if __name__ == "__main__":
     if(len(sys.argv) != 3):
@@ -136,6 +172,9 @@ if __name__ == "__main__":
     conn = psy.connect("dbname=%s user=%s" % (dbname, user))
 
 
+    drop_tables(conn)
+    create_porto_map(conn)
+    clean_tables(conn)
     create_tables(conn)
     fill_time_table(conn)
     fill_locations_table(conn)

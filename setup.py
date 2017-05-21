@@ -49,8 +49,10 @@ def find_stand(cur, service_id, initial):
 def fill_facts_table(conn):
     cur = conn.cursor()
     services_cur = conn.cursor()
+    # Select all the taxi services
     services_cur.execute("select taxis.id, initial_ts, final_ts, st_distancesphere(final_point, initial_point), taxi_services.id from taxi_services, taxis where taxi_id = taxis.license;");
     while 1:
+        # Fetch 5000 each time
         services = services_cur.fetchmany(5000)
         if len(services) == 0:
             break
@@ -63,24 +65,29 @@ def fill_facts_table(conn):
             service_id = service[4]
             duration = final_timestamp - initial_timestamp
 
+            # Calculate timestamp_id
             cur.execute("select timestamps.id from timestamps, taxi_services where date_trunc('hour', to_timestamp(initial_ts)) = timestamp and taxi_services.id = %s;" % (service_id))
             timestamp_id = cur.fetchone()[0]
 
+            # Check if near stand
             stand = find_stand(cur, service_id, True)
             if stand:
                 cur.execute("select id from locations where stand_id = %s;" % (stand[0]))
                 location_id = cur.fetchone()[0]
             else:
+                # If isn't near stand get location
                 cur.execute("select locations.id from locations, taxi_services, porto where taxi_services.id = %s and st_contains(geom, initial_point) and locations.freguesia = porto.freguesia and locations.concelho = porto.concelho and locations.stand_id is null;" % service_id)
                 location = cur.fetchone()
                 if location:
                     location_id = location[0]
                 else:
+                    # If location not in Porto, location = OUTSIDE
                     location_id = 1
 
+            # Insert in facts table if combination not present. Otherwise update the values
             cur.execute("insert into facts (time, location, taxi_id, n_services_initial, sum_duration_initial, sum_distance_initial, n_services_final, sum_duration_final, sum_distance_final) values (%d, %d, %d, 1, %d, %d, 0, 0, 0) on conflict(time, location, taxi_id) do update set n_services_initial = facts.n_services_initial + 1, sum_duration_initial = facts.sum_duration_initial + %d, sum_distance_initial = facts.sum_distance_initial + %d;" % (timestamp_id, location_id, taxi_id, duration, distance, duration, distance))
 
-
+            # Repeat location calculation but for final point
             stand = find_stand(cur, service_id, False)
             if stand:
                 cur.execute("select id from locations where stand_id = %s;" % (stand[0]))
@@ -94,6 +101,7 @@ def fill_facts_table(conn):
                     location_id = 1
 
             cur.execute("insert into facts (time, location, taxi_id, n_services_initial, sum_duration_initial, sum_distance_initial, n_services_final, sum_duration_final, sum_distance_final) values (%d, %d, %d, 0, 0, 0, 1, %d, %d) on conflict(time, location, taxi_id) do update set n_services_final = facts.n_services_final + 1, sum_duration_final = facts.sum_duration_final + %d, sum_distance_final = facts.sum_distance_final + %d;" % (timestamp_id, location_id, taxi_id, duration, distance, duration, distance))
+        # Commit 5000 each time
         conn.commit()
 
 
@@ -174,8 +182,10 @@ if __name__ == "__main__":
 
     drop_tables(conn)
     create_porto_map(conn)
+    create_porto_polygon(conn)
     clean_tables(conn)
     create_tables(conn)
+
     fill_time_table(conn)
     fill_locations_table(conn)
     fill_taxis_table(conn)

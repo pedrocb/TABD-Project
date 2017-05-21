@@ -45,57 +45,56 @@ def find_stand(cur, service_id, initial):
     cur.execute("select taxi_stands.id from taxi_stands, taxi_services where st_distancesphere(taxi_services.%s_point, taxi_stands.location) < 100 and taxi_services.id = %s;" % (point, service_id))
     return cur.fetchone()
 
+
 def fill_facts_table(conn):
     cur = conn.cursor()
     services_cur = conn.cursor()
     services_cur.execute("select taxis.id, initial_ts, final_ts, st_distancesphere(final_point, initial_point), taxi_services.id from taxi_services, taxis where taxi_id = taxis.license;");
-    count = 0
     while 1:
-        service = services_cur.fetchone()
-        if not service:
+        services = services_cur.fetchmany(5000)
+        if len(services) == 0:
             break
 
-        taxi_id = service[0]
-        initial_timestamp = service[1]
-        final_timestamp = service[2]
-        distance = service[3]
-        service_id = service[4]
-        duration = final_timestamp - initial_timestamp
+        for service in services:
+            taxi_id = service[0]
+            initial_timestamp = service[1]
+            final_timestamp = service[2]
+            distance = service[3]
+            service_id = service[4]
+            duration = final_timestamp - initial_timestamp
 
-        cur.execute("select timestamps.id from timestamps, taxi_services where date_trunc('hour', to_timestamp(initial_ts)) = timestamp and taxi_services.id = %s;" % (service_id))
-        timestamp_id = cur.fetchone()[0]
+            cur.execute("select timestamps.id from timestamps, taxi_services where date_trunc('hour', to_timestamp(initial_ts)) = timestamp and taxi_services.id = %s;" % (service_id))
+            timestamp_id = cur.fetchone()[0]
 
-        stand = find_stand(cur, service_id, True)
-        if stand:
-            cur.execute("select id from locations where stand_id = %s;" % (stand[0]))
-            location_id = cur.fetchone()[0]
-        else:
-            cur.execute("select locations.id from locations, taxi_services, porto where taxi_services.id = %s and st_contains(geom, initial_point) and locations.freguesia = porto.freguesia and locations.concelho = porto.concelho and locations.stand_id is null;" % service_id)
-            location = cur.fetchone()
-            if location:
-                location_id = location[0]
+            stand = find_stand(cur, service_id, True)
+            if stand:
+                cur.execute("select id from locations where stand_id = %s;" % (stand[0]))
+                location_id = cur.fetchone()[0]
             else:
-                location_id = 1
+                cur.execute("select locations.id from locations, taxi_services, porto where taxi_services.id = %s and st_contains(geom, initial_point) and locations.freguesia = porto.freguesia and locations.concelho = porto.concelho and locations.stand_id is null;" % service_id)
+                location = cur.fetchone()
+                if location:
+                    location_id = location[0]
+                else:
+                    location_id = 1
 
-        cur.execute("insert into facts (time, location, taxi_id, n_services_initial, sum_duration_initial, sum_distance_initial, n_services_final, sum_duration_final, sum_distance_final) values (%d, %d, %d, 1, %d, %d, 0, 0, 0) on conflict(time, location, taxi_id) do update set n_services_initial = facts.n_services_initial + 1, sum_duration_initial = facts.sum_duration_initial + %d, sum_distance_initial = facts.sum_distance_initial + %d;" % (timestamp_id, location_id, taxi_id, duration, distance, duration, distance))
+            cur.execute("insert into facts (time, location, taxi_id, n_services_initial, sum_duration_initial, sum_distance_initial, n_services_final, sum_duration_final, sum_distance_final) values (%d, %d, %d, 1, %d, %d, 0, 0, 0) on conflict(time, location, taxi_id) do update set n_services_initial = facts.n_services_initial + 1, sum_duration_initial = facts.sum_duration_initial + %d, sum_distance_initial = facts.sum_distance_initial + %d;" % (timestamp_id, location_id, taxi_id, duration, distance, duration, distance))
 
 
-        stand = find_stand(cur, service_id, False)
-        if stand:
-            cur.execute("select id from locations where stand_id = %s;" % (stand[0]))
-            location_id = cur.fetchone()[0]
-        else:
-            cur.execute("select locations.id from locations, taxi_services, porto where taxi_services.id = %s and st_contains(geom, final_point) and locations.freguesia = porto.freguesia and locations.concelho = porto.concelho and locations.stand_id is null;" % service_id)
-            location = cur.fetchone()
-            if location:
-                location_id = location[0]
+            stand = find_stand(cur, service_id, False)
+            if stand:
+                cur.execute("select id from locations where stand_id = %s;" % (stand[0]))
+                location_id = cur.fetchone()[0]
             else:
-                location_id = 1
-        cur.execute("insert into facts (time, location, taxi_id, n_services_initial, sum_duration_initial, sum_distance_initial, n_services_final, sum_duration_final, sum_distance_final) values (%d, %d, %d, 0, 0, 0, 1, %d, %d) on conflict(time, location, taxi_id) do update set n_services_final = facts.n_services_final + 1, sum_duration_final = facts.sum_duration_final + %d, sum_distance_final = facts.sum_distance_final + %d;" % (timestamp_id, location_id, taxi_id, duration, distance, duration, distance))
+                cur.execute("select locations.id from locations, taxi_services, porto where taxi_services.id = %s and st_contains(geom, final_point) and locations.freguesia = porto.freguesia and locations.concelho = porto.concelho and locations.stand_id is null;" % service_id)
+                location = cur.fetchone()
+                if location:
+                    location_id = location[0]
+                else:
+                    location_id = 1
+
+            cur.execute("insert into facts (time, location, taxi_id, n_services_initial, sum_duration_initial, sum_distance_initial, n_services_final, sum_duration_final, sum_distance_final) values (%d, %d, %d, 0, 0, 0, 1, %d, %d) on conflict(time, location, taxi_id) do update set n_services_final = facts.n_services_final + 1, sum_duration_final = facts.sum_duration_final + %d, sum_distance_final = facts.sum_distance_final + %d;" % (timestamp_id, location_id, taxi_id, duration, distance, duration, distance))
         conn.commit()
-        print("%d:%d", (count,service_id))
-        count = count + 1
-
 
 
 def create_taxis_table(conn):

@@ -53,7 +53,7 @@ def fill_facts_table(conn):
     services_cur.execute("select taxis.id, initial_ts, final_ts, st_distancesphere(final_point, initial_point), taxi_services.id from taxi_services, taxis where taxi_id = taxis.license;");
     while 1:
         # Fetch 5000 each time
-        services = services_cur.fetchmany(5000)
+        services = services_cur.fetchmany(1000)
         if len(services) == 0:
             break
 
@@ -150,6 +150,7 @@ def drop_tables(conn):
         cur.execute("DROP TABLE IF EXISTS locations;")
         cur.execute("DROP TABLE IF EXISTS taxis;")
         cur.execute("DROP TABLE IF EXISTS porto;")
+        cur.execute("DROP TABLE IF EXISTS polygon_porto;")
         conn.commit()
         print("Deleted tables")
     except:
@@ -157,7 +158,7 @@ def drop_tables(conn):
 
 def clean_tables(conn):
     cur = conn.cursor()
-    print("Cleaning tables\n")
+    print("Cleaning tables")
     # Delete services that start and finish outside Porto district
     cur.execute('''DELETE from taxi_services
                 using polygon_porto
@@ -169,24 +170,25 @@ def clean_tables(conn):
                 OR (st_distancesphere(initial_point, final_point)/1000)
                 / ((final_ts - initial_ts)::float/3600) < 3;''')
     conn.commit()
+    print("Tables cleaned")
 
-if __name__ == "__main__":
-    if(len(sys.argv) != 3):
-        print("Wrong number of arguments")
-        exit(0)
-
-    user = sys.argv[1]
-    dbname = sys.argv[2]
-    conn = psy.connect("dbname=%s user=%s" % (dbname, user))
-
-
-    drop_tables(conn)
-    create_porto_map(conn)
-    create_porto_polygon(conn)
-    clean_tables(conn)
-    create_tables(conn)
-
-    fill_time_table(conn)
-    fill_locations_table(conn)
-    fill_taxis_table(conn)
-    fill_facts_table(conn)
+#if __name__ == "__main__":
+    #if(len(sys.argv) != 3):
+        #print("Wrong number of arguments")
+        #exit(0)
+#
+    #user = sys.argv[1]
+    #dbname = sys.argv[2]
+    #conn = psy.connect("dbname=%s user=%s" % (dbname, user))
+#
+#
+    #drop_tables(conn)
+    #create_porto_map(conn)
+    #create_porto_polygon(conn)
+    #clean_tables(conn)
+    #create_tables(conn)
+#
+    #fill_time_table(conn)
+    #fill_locations_table(conn)
+    #fill_taxis_table(conn)
+    #fill_facts_table(conn)

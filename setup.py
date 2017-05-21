@@ -156,9 +156,9 @@ def clean_tables(conn):
                 using polygon_porto
                 where not st_contains(geom, initial_point)
                 and not st_contains(geom, final_point)''')
-    # Delete services that have a speed lower than 3 Km/h
+    # Delete services that have a speed lower than 3 Km/h or less than one minute
     cur.execute('''DELETE from taxi_services
-                where (final_ts - initial_ts) = 0
+                where (final_ts - initial_ts) < 60
                 OR (st_distancesphere(initial_point, final_point)/1000)
                 / ((final_ts - initial_ts)::float/3600) < 3;''')
     conn.commit()

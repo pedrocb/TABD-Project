@@ -36,6 +36,45 @@ def plot_feriados(conn):
     print("Media: ", sum(count)/float(len(count)))
 
 
+def plot_by_hour(conn):
+    cur = conn.cursor()
+    cur.execute("select extract('hour' from timestamp) as hour, sum(n_services_initial) from timestamps, facts where timestamps.id = time group by hour order by hour;")
+    results = cur.fetchall()
+    lists = convert_results_to_lists(results)
+    xs = lists[0]
+    ys = lists[1]
+    fig = plt.figure()
+    plt.bar(xs, ys, align='center', alpha=0.5)
+    plt.title("Frequency by hour")
+
+    plt.show()
+
+def velocity_by_hour(conn):
+    cur = conn.cursor()
+    cur.execute("select sum(sum_distance_initial)/sum(sum_duration_initial) as avg_velocity, extract('hour' from timestamp) as hour from facts, timestamps where time = timestamps.id group by hour order by avg_velocity;")
+    results = cur.fetchall()
+    lists = convert_results_to_lists(results)
+    ys = lists[0]
+    xs = lists[1]
+
+    fig = plt.figure()
+    plt.bar(xs, ys, align='center', alpha=0.5)
+    plt.title("Velocity by hour (m/s)")
+
+    plt.show()
+
+def plot_by_locations(conn):
+    cur = conn.cursor()
+    cur.execute("select sum(n_services_initial) + sum(n_services_final) as n_services, freguesia from locations, facts where location = locations.id group by freguesia order by n_services desc limit 5;")
+    lists = convert_results_to_lists(cur.fetchall())
+    ys = lists[0]
+    xs = lists[1]
+
+    fig = plt.figure()
+    plt.bar(range(0,5), ys, align='center', alpha=0.5)
+    plt.xticks(range(0,5), xs)
+
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -49,3 +88,6 @@ if __name__ == "__main__":
 
     plot_by_weekdays(conn)
     plot_feriados(conn)
+    plot_by_locations(conn)
+    plot_by_hour(conn)
+    velocity_by_hour(conn)

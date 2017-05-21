@@ -119,6 +119,14 @@ def create_porto_map(conn):
     conn.commit()
 
 
+def create_porto_polygon(conn):
+    cur = conn.cursor()
+    cur.execute("create table polygon_porto (ID serial primary key);")
+    cur.execute("SELECT AddGeometryColumn('','polygon_porto','geom','4326','MULTIPOLYGON',2);")
+    cur.execute('''insert into polygon_porto (geom)
+                (select st_multi(st_union(f.geom)) FROM porto as f)''')
+
+
 def create_tables(conn):
     create_time_table(conn)
     create_stands_table(conn)
@@ -144,18 +152,15 @@ def clean_tables(conn):
     cur = conn.cursor()
     print("Cleaning tables\n")
     # Delete services that start and finish outside Porto district
-    cur.execute('''
-    DELETE from taxi_services
-    where (select count(*) from porto where st_contains(geom,initial_point)) = 0
-    and (select count(*) from porto where st_contains(geom, final_point)) = 0;
-    ''')
-    print("Deleted {} rows".format(cur.fetchall()))
-    cur.execute('''
-    DELETE from taxi_services
-    where
-        (final_ts - initial_ts) = 0
-        OR (st_distancesphere(initial_point, final_point)/1000)
-        / ((final_ts - initial_ts)::float/3600) < 3;''')
+    cur.execute('''DELETE from taxi_services
+                using polygon_porto
+                where not st_contains(geom, initial_point)
+                and not st_contains(geom, final_point)''')
+    # Delete services that have a speed lower than 3 Km/h
+    cur.execute('''DELETE from taxi_services
+                where (final_ts - initial_ts) = 0
+                OR (st_distancesphere(initial_point, final_point)/1000)
+                / ((final_ts - initial_ts)::float/3600) < 3;''')
     conn.commit()
 
 if __name__ == "__main__":
